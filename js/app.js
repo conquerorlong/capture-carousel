@@ -250,6 +250,7 @@ async function createProject(ratio, count, tplId) {
   };
   await store.saveProject(p);
   await openProject(p.id);
+  await saveNow(); // proje listesinde küçük resmi hemen görünsün
 }
 
 // ---------------- editörü aç ----------------
@@ -284,11 +285,21 @@ function updateStrip(rebuild) {
   const box = $('#slideStrip');
   if (rebuild || box.children.length !== P.slides) {
     box.innerHTML = '';
-    for (let i = 0; i < P.slides; i++) box.append(h('button', { onclick: () => stage.focusSlide(i) }, String(i + 1)));
+    for (let i = 0; i < P.slides; i++) box.append(h('button', { onclick: () => { if (!stage.single) stage.single = true; stage.focusSlide(i); } }, String(i + 1)));
   }
   const cur = stage.currentSlide();
   [...box.children].forEach((b, i) => b.classList.toggle('on', i === cur));
+  const single = stage.single;
+  $('#btnPrevSlide').hidden = !single || cur <= 0;
+  $('#btnNextSlide').hidden = !single || cur >= P.slides - 1;
+  $('#slideCount').hidden = !single;
+  $('#slideCount').textContent = `${cur + 1} / ${P.slides}`;
+  $('#btnMode').classList.toggle('on', !single);
+  $('#btnMode').setAttribute('aria-label', single ? 'Tüm slaytları göster' : 'Tek slayt göster');
 }
+$('#btnPrevSlide').addEventListener('click', () => stage.focusSlide(stage.cur - 1));
+$('#btnNextSlide').addEventListener('click', () => stage.focusSlide(stage.cur + 1));
+$('#btnMode').addEventListener('click', () => { stage.setSingle(!stage.single); updateStrip(); });
 
 // ---------------- fotoğraf içe aktarma ----------------
 async function importFile(file) {
@@ -789,6 +800,9 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (stage.crop) stage.setCrop(false); else if (!$('#sheet').hidden) closeSheet(); else stage.select(null); return; }
   if ((e.key === 'Delete' || e.key === 'Backspace') && el) { e.preventDefault(); remove(el); return; }
   if (e.key === 'Enter' && el?.type === 'image' && el.assetId) { stage.setCrop(!stage.crop); return; }
+  if (!el && stage.single && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    stage.focusSlide(stage.cur + (e.key === 'ArrowRight' ? 1 : -1)); return;
+  }
   const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
   if (arrows[e.key] && el) {
     e.preventDefault();

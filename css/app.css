@@ -166,3 +166,10 @@ select.chip { appearance: none; padding-right: 26px; background-image: linear-gr
 .grid-note { width: min(100%, 470px); color: var(--muted); font-size: 12px; padding: 10px 12px; }
 
 .toast { position: fixed; left: 50%; bottom: calc(var(--safe-b) + 90px); transform: translateX(-50%); background: #fff; color: #111; padding: 10px 16px; border-radius: 12px; font-weight: 600; z-index: 99; box-shadow: 0 10px 30px #0008; max-width: 90vw; text-align: center; }
+
+.nav-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: #1b1b20e6; display: grid; place-items: center; z-index: 2; }
+.nav-arrow.left { left: 6px; }
+.nav-arrow.right { right: 6px; }
+.nav-arrow svg { width: 20px; height: 20px; }
+.slide-count { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 600; color: var(--muted); background: #1b1b20e6; border: 1px solid var(--line); padding: 3px 10px; border-radius: 99px; pointer-events: none; }
+#btnMode.on { background: var(--bg3); color: var(--accent); }

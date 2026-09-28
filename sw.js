@@ -1,5 +1,5 @@
 // Çevrimdışı çalışma: uygulama dosyaları önbellekten, yazı tipleri ilk yüklemeden sonra önbellekten.
-const V = 'kaydir-v3';
+const V = 'kaydir-v4';
 const SHELL = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/stage.js', 'js/render.js', 'js/store.js',
   'js/templates.js', 'js/zip.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-180.png'];
 

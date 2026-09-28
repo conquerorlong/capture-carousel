@@ -27,6 +27,8 @@ export class Stage {
     this.lastTap = { t: 0, id: null };
     this.dpr = 1;
     this._raf = 0;
+    this.single = true; // tek slayt görünümü (varsayılan)
+    this.cur = 0;       // tek slayt görünümünde gösterilen slayt
 
     canvas.addEventListener('pointerdown', e => this.down(e));
     canvas.addEventListener('pointermove', e => this.move(e));
@@ -45,14 +47,34 @@ export class Stage {
     this.images = images;
     this.sel = null;
     this.crop = false;
+    this.cur = 0;
     this.resize();
     this.fit();
+  }
+
+  setSingle(on) {
+    this.single = on;
+    if (on) this.cur = this.centerSlide();
+    this.fit();
+  }
+
+  // Tek slayt görünümünde, ekran tam bir slayta oturmuş mu (kullanıcı yakınlaştırmadıysa)
+  singleFitScale() {
+    const padTop = 52, padBot = 40;
+    return Math.min((this.ch - padTop - padBot) / this.H, (this.cw - 96) / this.W);
   }
 
   resize() {
     const r = this.c.parentElement.getBoundingClientRect();
     if (!r.width || !r.height) return;
     // Yükseklik değişirse (panel açıldı/kapandı) görünümü orantılı ölçekle, ortadaki nokta yerinde kalsın
+    if (this.p && this.single && this.cw && (Math.abs(r.width - this.cw) > 1 || Math.abs(r.height - this.ch) > 1)) {
+      const zoomed = Math.abs(this.view.s - this.singleFitScale()) > 0.001;
+      this.cw = r.width; this.ch = r.height;
+      this.setCanvasSize(r);
+      if (!zoomed) this.focusSlide(this.cur); else this.render();
+      return;
+    }
     if (this.p && this.cw && this.ch && (Math.abs(r.width - this.cw) > 1 || Math.abs(r.height - this.ch) > 1)) {
       const v = this.view;
       const tw = this.W * this.p.slides * v.s;
@@ -84,6 +106,7 @@ export class Stage {
 
   fit() {
     if (!this.p || !this.cw) return;
+    if (this.single) { this.focusSlide(Math.min(this.cur, this.p.slides - 1)); return; }
     const { W, H } = this;
     const n = this.p.slides;
     const padX = 20, padTop = 52, padBot = 40;
@@ -112,14 +135,18 @@ export class Stage {
   focusSlide(i) {
     const v = this.view;
     const padTop = 52, padBot = 40;
-    v.s = Math.min((this.ch - padTop - padBot) / this.H, (this.cw - 80) / this.W);
+    i = Math.max(0, Math.min(this.p.slides - 1, i));
+    this.cur = i;
+    v.s = this.singleFitScale();
     v.ox = this.cw / 2 - (i + 0.5) * this.W * v.s;
     v.oy = padTop + (this.ch - padTop - padBot - this.H * v.s) / 2;
     this.clampView(); this.render(); this.hooks.onViewChange?.();
   }
 
+  currentSlide() { return this.single ? this.cur : this.centerSlide(); }
+
   // Ekranın ortasındaki slayt
-  currentSlide() {
+  centerSlide() {
     const wx = (this.cw / 2 - this.view.ox) / this.view.s;
     return Math.max(0, Math.min(this.p.slides - 1, Math.floor(wx / this.W)));
   }
@@ -217,6 +244,17 @@ export class Stage {
     if (W * s > 70) for (let i = 0; i < n; i++) ctx.fillText(`${W}×${H}`, ox + (i + 0.5) * W * s, oy + H * s + 10);
     ctx.strokeStyle = '#34343d';
     ctx.strokeRect(ox - 0.5, oy - 0.5, W * n * s + 1, H * s + 1);
+
+    // tek slayt görünümü: gösterilen slaytın dışını karart (taşan kısım soluk görünür)
+    if (this.single) {
+      const x0 = ox + this.cur * W * s, x1 = x0 + W * s;
+      ctx.fillStyle = 'rgba(11,11,13,.72)';
+      ctx.fillRect(0, 0, x0, this.ch);
+      ctx.fillRect(x1, 0, this.cw - x1, this.ch);
+      ctx.strokeStyle = 'rgba(255,255,255,.35)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x0 - 0.5, oy - 0.5, W * s + 1, H * s + 1);
+    }
 
     // hizalama kılavuzları
     if (this.guides.length) {
@@ -354,7 +392,9 @@ export class Stage {
       return;
     }
 
-    const hit = this.hitElement(wp);
+    // tek slayt görünümünde soluk yan slaytlardaki öğeler seçilmez; orası kaydırma/geçiş alanıdır
+    const outside = this.single && (wp.x < this.cur * this.W || wp.x > (this.cur + 1) * this.W);
+    const hit = outside ? null : this.hitElement(wp);
 
     if (this.crop && el) {
       if (hit && hit.id === el.id || this.insideContent(el, wp)) {
@@ -484,6 +524,20 @@ export class Stage {
     this.guides = [];
     this.g = null;
     if (!g) return;
+    if (g.type === 'pan' && this.single) {
+      if (!g.moved) {
+        // soluk yan slayta dokunuldu: o slayta geç
+        const wx = this.toWorld(g.sp0.x, g.sp0.y).x;
+        if (wx < this.cur * this.W) this.focusSlide(this.cur - 1);
+        else if (wx > (this.cur + 1) * this.W) this.focusSlide(this.cur + 1);
+        return;
+      }
+      if (Math.abs(this.view.s - this.singleFitScale()) < 0.001) {
+        const dx = this.pt(e).x - g.sp0.x;
+        this.focusSlide(this.cur + (dx < -40 ? 1 : dx > 40 ? -1 : 0));
+        return;
+      }
+    }
     if (g.type === 'move' && !g.moved) {
       const el = this.selected();
       if (g.dbl && el) {
@@ -511,6 +565,10 @@ export class Stage {
       this.view.ox -= onlyV ? dy : dx;
       if (!onlyV) this.view.oy -= dy;
       this.clampView(); this.render(); this.hooks.onViewChange?.();
+      if (this.single && Math.abs(this.view.s - this.singleFitScale()) < 0.001) {
+        clearTimeout(this._snap);
+        this._snap = setTimeout(() => this.focusSlide(this.centerSlide()), 180);
+      }
     }
   }
 

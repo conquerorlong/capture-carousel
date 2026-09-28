@@ -55,7 +55,11 @@
   <div class="work-main">
   <div class="stage-wrap" id="stageWrap">
     <canvas id="stage"></canvas>
+    <button class="nav-arrow left" id="btnPrevSlide" aria-label="Önceki slayt"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <button class="nav-arrow right" id="btnNextSlide" aria-label="Sonraki slayt"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+    <div class="slide-count" id="slideCount"></div>
     <div class="zoom-ctl">
+      <button class="icon-btn small" id="btnMode" aria-label="Tüm slaytları göster" title="Tüm slaytlar / tek slayt"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="6" height="12" rx="1"/><rect x="9" y="6" width="6" height="12" rx="1"/><rect x="16" y="6" width="6" height="12" rx="1"/></svg></button>
       <button class="icon-btn small" id="btnZoomOut" aria-label="Uzaklaş"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
       <button class="icon-btn small" id="btnFit" aria-label="Sığdır"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
       <button class="icon-btn small" id="btnZoomIn" aria-label="Yakınlaş"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button>
