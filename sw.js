@@ -1,7 +1,7 @@
 // Çevrimdışı çalışma: uygulama dosyaları önbellekten, yazı tipleri ilk yüklemeden sonra önbellekten.
-const V = 'kaydir-v4';
+const V = 'kaydir-v6';
 const SHELL = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/stage.js', 'js/render.js', 'js/store.js',
-  'js/templates.js', 'js/zip.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-180.png'];
+  'js/templates.js', 'js/zip.js', 'js/video.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-180.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

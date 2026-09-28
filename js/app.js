@@ -1,8 +1,10 @@
 import { store, uid } from './store.js';
 import { Stage } from './stage.js';
-import { RATIOS, FONTS, slideSize, renderSlide, renderStrip, canvasToBlob, drawSlidesApart, layoutText } from './render.js';
+import { RATIOS, FONTS, slideSize, renderSlide, renderStrip, canvasToBlob, drawSlidesApart, drawProject, layoutText } from './render.js';
 import { TEMPLATES, applyTemplate, frame, text, shape } from './templates.js';
 import { makeZip } from './zip.js';
+import { isVideo, isVideoFile, dims, blobToVideo, disposeDrawable, videoLength, videoSlides, videoElements,
+  pickMime, unlockAudio, recordSlide, MAX_VIDEOS, MAX_SECONDS, MAX_VIDEO_MB } from './video.js';
 
 const $ = s => document.querySelector(s);
 const h = (tag, attrs = {}, ...kids) => {
@@ -147,6 +149,8 @@ async function saveNow() {
 async function showHome() {
   if (P) await saveNow();
   P = null;
+  for (const d of images.values()) disposeDrawable(d);
+  images = new Map();
   $('#editor').hidden = true;
   $('#home').hidden = false;
   const list = await store.listProjects();
@@ -257,12 +261,13 @@ async function createProject(ratio, count, tplId) {
 async function openProject(id) {
   const p = await store.getProject(id);
   if (!p) return;
+  for (const d of images.values()) disposeDrawable(d);
   images = new Map();
   const assets = await store.getProjectAssets(id);
   const used = new Set(p.elements.map(e => e.assetId).filter(Boolean));
   await Promise.all(assets.map(async a => {
     if (!used.has(a.id)) { store.deleteAsset(a.id); return; } // artık kullanılmayan fotoğrafları temizle
-    try { images.set(a.id, await blobToDrawable(a.blob)); } catch { /* bozuk dosya */ }
+    try { images.set(a.id, a.kind === 'video' ? await blobToVideo(a.blob) : await blobToDrawable(a.blob)); } catch { /* bozuk dosya */ }
   }));
   P = p;
   $('#home').hidden = true;
@@ -285,7 +290,7 @@ function updateStrip(rebuild) {
   const box = $('#slideStrip');
   if (rebuild || box.children.length !== P.slides) {
     box.innerHTML = '';
-    for (let i = 0; i < P.slides; i++) box.append(h('button', { onclick: () => { if (!stage.single) stage.single = true; stage.focusSlide(i); } }, String(i + 1)));
+    for (let i = 0; i < P.slides; i++) box.append(h('button', { onclick: () => (stage.single ? stage.focusSlide(i) : stage.panToSlide(i)) }, String(i + 1)));
   }
   const cur = stage.currentSlide();
   [...box.children].forEach((b, i) => b.classList.toggle('on', i === cur));
@@ -302,7 +307,20 @@ $('#btnNextSlide').addEventListener('click', () => stage.focusSlide(stage.cur + 
 $('#btnMode').addEventListener('click', () => { stage.setSingle(!stage.single); updateStrip(); });
 
 // ---------------- fotoğraf içe aktarma ----------------
+async function importVideo(file) {
+  if (file.size > MAX_VIDEO_MB * 1048576) throw new Error(`Video çok büyük (en fazla ${MAX_VIDEO_MB} MB)`);
+  const v = await blobToVideo(file);
+  const asset = { id: uid(), projectId: P.id, blob: file, w: v.videoWidth, h: v.videoHeight, kind: 'video', duration: v.duration };
+  await store.putAsset(asset);
+  images.set(asset.id, v);
+  if (v.duration > MAX_SECONDS + 0.5) toast(`Video ${Math.round(v.duration)} sn — yalnızca ilk ${MAX_SECONDS} saniyesi kullanılacak`, 4000);
+  return asset;
+}
+
+const videoCount = () => new Set(videoElements(P, images).map(e => e.assetId)).size;
+
 async function importFile(file) {
+  if (isVideoFile(file)) return importVideo(file);
   let bmp = await blobToDrawable(file);
   const w0 = bmp.width, h0 = bmp.height;
   let blob = file;
@@ -341,9 +359,14 @@ function addFreePhoto(asset, cx, cy, maxW, maxH) {
 }
 
 async function importPhotos(files, dropPoint) {
-  files = [...files].filter(f => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
+  files = [...files].filter(f => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name) || isVideoFile(f));
+  // video sınırı: proje başına en fazla MAX_VIDEOS
+  let room = MAX_VIDEOS - videoCount();
+  const skipped = files.filter(f => isVideoFile(f) && room-- <= 0);
+  files = files.filter(f => !skipped.includes(f));
+  if (skipped.length) toast(`Bir projede en fazla ${MAX_VIDEOS} video olabilir; ${skipped.length} video eklenmedi`, 4000);
   if (!files.length) return;
-  toast(files.length > 1 ? `${files.length} fotoğraf yükleniyor…` : 'Fotoğraf yükleniyor…', 60000);
+  if (!skipped.length) toast(files.length > 1 ? `${files.length} dosya yükleniyor…` : 'Yükleniyor…', 60000);
   const { w: W, h: H } = slideSize(P);
   // Önce boş çerçeveleri doldur (seçili/bekleyen çerçeveden başlayarak), kalanlar serbest eklenir
   const empties = P.elements.filter(e => e.type === 'image' && !e.assetId);
@@ -354,13 +377,14 @@ async function importPhotos(files, dropPoint) {
   let last = null;
   for (const f of files) {
     let asset;
-    try { asset = await importFile(f); } catch { toast(`"${f.name}" açılamadı`); continue; }
+    try { asset = await importFile(f); } catch (err) { toast(err.message?.startsWith('Video') ? err.message : `"${f.name}" açılamadı`, 4000); continue; }
     const target = empties.shift();
     if (target) { fillFrame(target, asset); last = target; continue; }
     if (dropPoint) { last = addFreePhoto(asset, dropPoint.x, dropPoint.y, W * 0.8, H * 0.8); dropPoint = { x: dropPoint.x + 40, y: dropPoint.y + 40 }; }
     else { last = addFreePhoto(asset, (Math.min(slide, P.slides - 1) + 0.5) * W, H / 2, W * 0.84, H * 0.84); slide++; }
   }
-  $('#toast').hidden = true;
+  // yalnızca "yükleniyor" bildirimini kapat; uyarı/hata mesajları kendi süresi dolana kadar kalsın
+  if ($('#toast').textContent.endsWith('yükleniyor…') || $('#toast').textContent === 'Yükleniyor…') $('#toast').hidden = true;
   if (last) stage.select(last.id);
   stage.render();
   commit();
@@ -371,7 +395,10 @@ $('#fileReplace').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = '';
   const el = P.elements.find(x => x.id === replaceTarget);
   if (!f || !el) return;
-  const asset = await importFile(f);
+  const wasVideo = isVideo(images.get(el.assetId));
+  if (isVideoFile(f) && !wasVideo && videoCount() >= MAX_VIDEOS) { toast(`Bir projede en fazla ${MAX_VIDEOS} video olabilir`); return; }
+  let asset;
+  try { asset = await importFile(f); } catch (err) { toast(err.message || 'Dosya açılamadı'); return; }
   fillFrame(el, asset);
   stage.render(); commit();
 });
@@ -514,23 +541,23 @@ function templateSheet() {
 
 function useTemplate(t) {
   const { w: W, h: H } = slideSize(P);
-  const assets = P.elements.filter(e => e.type === 'image' && e.assetId).map(e => e.assetId);
+  const assets = P.elements.filter(e => e.type === 'image' && e.assetId && images.has(e.assetId)).map(e => e.assetId);
   const r = applyTemplate(t, P.slides, W, H);
   const extra = [];
   for (const el of r.elements) {
     if (el.type === 'image' && assets.length) {
       const id = assets.shift();
-      const img = images.get(id);
-      fillFrame(el, { id, w: img.width, h: img.height });
+      const img = dims(images.get(id));
+      fillFrame(el, { id, w: img.w, h: img.h });
     }
   }
   // şablonda çerçeve kalmadıysa artan fotoğraflar serbest olarak eklensin
   let s = 0;
   for (const id of assets) {
-    const img = images.get(id);
-    const sc = Math.min(W * 0.84 / img.width, H * 0.84 / img.height);
-    const el = frame((s % P.slides + 0.5) * W - img.width * sc / 2, H / 2 - img.height * sc / 2, img.width * sc, img.height * sc);
-    fillFrame(el, { id, w: img.width, h: img.height });
+    const img = dims(images.get(id));
+    const sc = Math.min(W * 0.84 / img.w, H * 0.84 / img.h);
+    const el = frame((s % P.slides + 0.5) * W - img.w * sc / 2, H / 2 - img.h * sc / 2, img.w * sc, img.h * sc);
+    fillFrame(el, { id, w: img.w, h: img.h });
     extra.push(el); s++;
   }
   P.elements = [...r.elements, ...extra];
@@ -597,6 +624,9 @@ function buildPanel(soft) {
     if (el.assetId) {
       r1.append(chip(stage.crop ? 'Kırpmayı bitir' : 'Kırp / konumla', () => stage.setCrop(!stage.crop), { on: stage.crop, icon: 'crop' }));
       r1.append(chip('Değiştir', () => { replaceTarget = el.id; $('#fileReplace').click(); }, { icon: 'img' }));
+      if (isVideo(images.get(el.assetId))) {
+        r1.append(chip(el.sound === false ? 'Ses: kapalı' : 'Ses: açık', () => { el.sound = el.sound === false; commit(); buildPanel(); }, { on: el.sound !== false }));
+      }
       r1.append(chip('Ortala', () => { fillFrame(el, { id: el.assetId, w: el.iw, h: el.ih }); stage.render(); commit(); }));
       r1.append(chip('Boşalt', () => { el.assetId = null; stage.setCrop(false); stage.render(); commit(); buildPanel(); }));
     } else {
@@ -681,7 +711,10 @@ function remove(el) {
 
 // ---------------- önizleme ----------------
 let previewUrls = [];
+let previewVideoSlides = [];
+let previewRaf = 0;
 async function openPreview(mode = 'post') {
+  previewVideoSlides = videoSlides(P, images);
   $('#previewBody').innerHTML = '<p class="grid-note" style="text-align:center;margin-top:30vh">Hazırlanıyor…</p>';
   $('#preview').hidden = false;
   await ensureFonts(P);
@@ -697,7 +730,29 @@ function showPreviewMode(mode) {
   body.innerHTML = '';
   const n = P.slides;
   if (mode === 'post') {
-    const car = h('div', { class: 'ig-car' }, ...previewUrls.map(u => h('img', { src: u, alt: '' })));
+    // video içeren slaytlar önizlemede canlı çizilir
+    const live = [];
+    const car = h('div', { class: 'ig-car' }, ...previewUrls.map((u, i) => {
+      if (!previewVideoSlides.includes(i)) return h('img', { src: u, alt: '' });
+      const { w: W, h: H } = slideSize(P);
+      const c = h('canvas', { width: Math.round(W / 2), height: Math.round(H / 2) });
+      live.push({ c, i });
+      return c;
+    }));
+    cancelAnimationFrame(previewRaf);
+    if (live.length) {
+      const loop = () => {
+        if ($('#preview').hidden) return;
+        for (const { c, i } of live) {
+          const x = c.getContext('2d');
+          x.setTransform(0.5, 0, 0, 0.5, 0, 0);
+          x.translate(-i * slideSize(P).w, 0);
+          drawProject(x, P, images, {});
+        }
+        previewRaf = requestAnimationFrame(loop);
+      };
+      loop();
+    }
     const counter = h('span', {}, `1/${n}`);
     const dots = h('div', { class: 'ig-dots' }, ...previewUrls.map((_, i) => h('i', { class: i === 0 ? 'on' : '' })));
     car.addEventListener('scroll', () => {
@@ -733,34 +788,77 @@ function download(blob, name) {
 }
 
 async function exportSheet() {
+  unlockAudio(); // iOS: ses kaydı için kullanıcının dokunuşu anında açılmalı
   await saveNow();
   let fmt = 'jpg';
+  let busy = false;
   openSheet(async body => {
     body.append(h('h3', {}, 'Dışa aktar'));
     const fmtRow = h('div', { class: 'prow' });
     const thumbs = h('div', { class: 'export-thumbs' });
     const actions = h('div', { class: 'big-actions' });
     const info = h('p', { class: 'note' });
-    body.append(fmtRow, h('h4', {}, 'Slaytlar'), thumbs, info, actions,
-      h('p', { class: 'note' }, 'Instagram\'da yeni gönderi → birden fazla seç → görselleri 1\'den başlayarak sırayla işaretle.'));
+    const vnote = h('p', { class: 'note' });
+    body.append(fmtRow, h('h4', {}, 'Slaytlar'), thumbs, info, vnote, actions,
+      h('p', { class: 'note' }, 'Instagram\'da yeni gönderi → birden fazla seç → dosyaları 1\'den başlayarak sırayla işaretle.'));
     let files = [];
+    const vSlides = videoSlides(P, images);
+    const mime = vSlides.length ? pickMime() : null;
     const build = async () => {
-      thumbs.innerHTML = ''; actions.innerHTML = ''; info.textContent = 'Hazırlanıyor…';
+      if (busy) return;
+      busy = true;
+      thumbs.innerHTML = ''; actions.innerHTML = ''; info.textContent = 'Hazırlanıyor…'; vnote.textContent = '';
       fmtRow.innerHTML = '';
       fmtRow.append(chip('JPG (önerilen)', () => { fmt = 'jpg'; build(); }, { on: fmt === 'jpg' }), chip('PNG', () => { fmt = 'png'; build(); }, { on: fmt === 'png' }));
       await ensureFonts(P);
       const { w: W, h: H } = slideSize(P);
       files = [];
       const base = slug(P.name);
-      for (let i = 0; i < P.slides; i++) {
-        const blob = await canvasToBlob(renderSlide(P, images, i, 1), fmt === 'png' ? 'image/png' : 'image/jpeg', 0.95);
-        const name = `${base}-${String(i + 1).padStart(2, '0')}.${fmt}`;
-        files.push(new File([blob], name, { type: blob.type }));
+      const slots = [];
+      for (let i = 0; i < P.slides; i++) { const a = h('a', { class: 'slot' }); thumbs.append(a); slots.push(a); }
+      const put = (i, blob, ext) => {
+        const name = `${base}-${String(i + 1).padStart(2, '0')}.${ext}`;
+        files[i] = new File([blob], name, { type: blob.type });
         const url = URL.createObjectURL(blob);
-        thumbs.append(h('a', { href: url, download: name, title: `${i + 1}. slaytı indir` }, h('img', { src: url, alt: `${i + 1}. slayt` })));
+        const a = slots[i];
+        a.href = url; a.download = name; a.title = `${i + 1}. slaytı indir`; a.innerHTML = '';
+        a.append(blob.type.startsWith('video/')
+          ? h('video', { src: url, muted: true, autoplay: true, loop: true, playsinline: true })
+          : h('img', { src: url, alt: `${i + 1}. slayt` }));
+      };
+      // önce fotoğraf slaytları (anında)
+      for (let i = 0; i < P.slides; i++) {
+        if (vSlides.includes(i) && mime) { slots[i].append(h('div', { class: 'slot-wait' }, 'Video bekliyor')); continue; }
+        put(i, await canvasToBlob(renderSlide(P, images, i, 1), fmt === 'png' ? 'image/png' : 'image/jpeg', 0.95), fmt);
+      }
+      // sonra video slaytları (gerçek zamanlı kayıt)
+      if (vSlides.length && !mime) vnote.textContent = 'Bu tarayıcı video kaydedemiyor; video slaytları fotoğraf olarak çıktı. Chrome veya Safari\'nin güncel sürümünü kullan.';
+      if (vSlides.length && mime) {
+        const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+        const secs = Math.round(Math.max(...videoElements(P, images).map(e => videoLength(images.get(e.assetId)))));
+        for (const [k, i] of vSlides.entries()) {
+          info.textContent = `Video kaydediliyor: ${k + 1}/${vSlides.length} (slayt ${i + 1}, ~${secs} sn). Bu sırada ekranı kapatma, sekmeyi değiştirme.`;
+          const bar = h('div', { class: 'slot-wait' }, '0%');
+          slots[i].innerHTML = ''; slots[i].append(bar);
+          let blob;
+          try {
+            blob = await recordSlide(P, images, i, { mime, withSound: true, onProgress: f => { bar.textContent = Math.round(f * 100) + '%'; } });
+          } catch (err) {
+            info.textContent = err.message === 'hidden'
+              ? 'Video kaydı yarıda kaldı: kayıt sırasında ekran kapandı veya başka uygulamaya geçildi. Ekran açıkken tekrar dene.'
+              : 'Video kaydedilemedi: ' + err.message;
+            actions.innerHTML = '';
+            actions.append(h('button', { class: 'btn primary', onclick: () => { unlockAudio(); build(); } }, 'Tekrar dene'));
+            busy = false;
+            return;
+          }
+          put(i, blob, ext);
+        }
+        if (ext === 'webm') vnote.textContent = 'Uyarı: bu tarayıcı yalnızca WebM üretebildi; Instagram WebM kabul etmeyebilir. En iyi sonuç için Safari (Mac/iPhone) veya güncel Chrome kullan.';
       }
       const mb = files.reduce((s, f) => s + f.size, 0) / 1048576;
-      info.textContent = `${files.length} görsel · ${W}×${H} px · ${mb.toFixed(1)} MB. Tek bir görseli indirmek için üzerine dokun.`;
+      const nv = files.filter(f => f.type.startsWith('video/')).length;
+      info.textContent = `${files.length} dosya${nv ? ` (${nv} video)` : ''} · ${W}×${H} px · ${mb.toFixed(1)} MB. Tek bir dosyayı indirmek için üzerine dokun.`;
       if (navigator.canShare && navigator.canShare({ files })) {
         actions.append(h('button', { class: 'btn primary', onclick: async () => {
           try { await navigator.share({ files }); } catch (e) { if (e.name !== 'AbortError') toast('Paylaşım açılamadı: ' + e.message); }
@@ -772,6 +870,7 @@ async function exportSheet() {
       actions.append(h('button', { class: 'btn ghost', onclick: async () => {
         for (const f of files) { download(f, f.name); await new Promise(r => setTimeout(r, 350)); }
       } }, 'Tek tek indir'));
+      busy = false;
     };
     build();
   });

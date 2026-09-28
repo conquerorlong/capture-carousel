@@ -27,7 +27,9 @@ export class Stage {
     this.lastTap = { t: 0, id: null };
     this.dpr = 1;
     this._raf = 0;
-    this.single = true; // tek slayt görünümü (varsayılan)
+    // varsayılan: SCRL gibi tüm şerit; kullanıcının tercihi cihazda hatırlanır
+    this.single = false;
+    try { this.single = localStorage.getItem('kaydir.single') === '1'; } catch { /* depolama kapalı */ }
     this.cur = 0;       // tek slayt görünümünde gösterilen slayt
 
     canvas.addEventListener('pointerdown', e => this.down(e));
@@ -54,6 +56,7 @@ export class Stage {
 
   setSingle(on) {
     this.single = on;
+    try { localStorage.setItem('kaydir.single', on ? '1' : '0'); } catch { /* depolama kapalı */ }
     if (on) this.cur = this.centerSlide();
     this.fit();
   }
@@ -140,6 +143,12 @@ export class Stage {
     v.s = this.singleFitScale();
     v.ox = this.cw / 2 - (i + 0.5) * this.W * v.s;
     v.oy = padTop + (this.ch - padTop - padBot - this.H * v.s) / 2;
+    this.clampView(); this.render(); this.hooks.onViewChange?.();
+  }
+
+  // Şerit görünümünde ölçeği koruyarak slaytı ortaya getir
+  panToSlide(i) {
+    this.view.ox = this.cw / 2 - (i + 0.5) * this.W * this.view.s;
     this.clampView(); this.render(); this.hooks.onViewChange?.();
   }
 
@@ -271,6 +280,9 @@ export class Stage {
     }
 
     if (el) this.drawSelection(el);
+
+    // oynayan video varsa sürekli çiz
+    if (this.p.elements.some(e => e.assetId && this.images.get(e.assetId) instanceof HTMLVideoElement)) this.render();
   }
 
   // Öğenin (veya kırpma modunda içeriğin) ekran köşeleri ve tutamaçları
