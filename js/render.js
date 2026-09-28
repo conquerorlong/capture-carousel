@@ -69,7 +69,37 @@ function shapePath(ctx, el) {
   }
 }
 
+// Pano için yapışkan not: renkli kart + içinde kaydırmalı metin; metin sığmazsa kart uzar
+function drawNote(ctx, el) {
+  const pad = el.size * 0.8;
+  const t = { text: el.text, font: el.font || 'Inter', size: el.size, weight: el.weight || 600, italic: false, lineHeight: 1.3, w: Math.max(10, el.w - 2 * pad) };
+  ctx.save();
+  const { lines, lh } = layoutText(ctx, t);
+  ctx.restore();
+  el.h = Math.max(el.h, t.h + 2 * pad);
+  ctx.save();
+  ctx.translate(el.x + el.w / 2, el.y + el.h / 2);
+  if (el.rot) ctx.rotate(el.rot);
+  ctx.globalAlpha = el.opacity ?? 1;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,.28)';
+  ctx.shadowBlur = el.size * 1.2;
+  ctx.shadowOffsetY = el.size * 0.35;
+  roundRect(ctx, -el.w / 2, -el.h / 2, el.w, el.h, el.size * 0.5);
+  ctx.fillStyle = el.fill || '#ffd84f';
+  ctx.fill();
+  ctx.restore();
+  ctx.font = fontString(t);
+  ctx.fillStyle = el.color || '#1a1a1a';
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+  let y = -el.h / 2 + pad;
+  for (const l of lines) { ctx.fillText(l, -el.w / 2 + pad, y + (lh - el.size) / 2); y += lh; }
+  ctx.restore();
+}
+
 export function drawElement(ctx, el, images, opts = {}) {
+  if (el.type === 'note') { drawNote(ctx, el); return; }
   ctx.save();
   ctx.translate(el.x + el.w / 2, el.y + el.h / 2);
   if (el.rot) ctx.rotate(el.rot);
@@ -162,6 +192,42 @@ export function drawProject(ctx, p, images, opts = {}) {
     drawElement(ctx, el, images, opts);
   }
   ctx.restore();
+}
+
+// Pano (sonsuz tuval): slayt, kırpma ve arka plan yok; yalnızca öğeler
+export function drawBoard(ctx, p, images, opts = {}) {
+  for (const el of p.elements) if (!el.hidden) drawElement(ctx, el, images, opts);
+}
+
+// Öğelerin kapladığı alan (döndürülmüş kutular dahil)
+export function contentBounds(elements) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const el of elements) {
+    const a = el.rot || 0;
+    const hw = (Math.abs(Math.cos(a)) * el.w + Math.abs(Math.sin(a)) * el.h) / 2;
+    const hh = (Math.abs(Math.sin(a)) * el.w + Math.abs(Math.cos(a)) * el.h) / 2;
+    const cx = el.x + el.w / 2, cy = el.y + el.h / 2;
+    x0 = Math.min(x0, cx - hw); x1 = Math.max(x1, cx + hw); y0 = Math.min(y0, cy - hh); y1 = Math.max(y1, cy + hh);
+  }
+  return Number.isFinite(x0) ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
+}
+
+export const BOARD_BG = '#1c1c22';
+
+// Pano küçük resmi / görsel olarak dışa aktarma
+export function renderBoard(p, images, maxW, maxH, pad = 60) {
+  const b = contentBounds(p.elements) || { x: 0, y: 0, w: 1000, h: 600 };
+  const sc = Math.min(maxW / (b.w + pad * 2), maxH / (b.h + pad * 2));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round((b.w + pad * 2) * sc));
+  c.height = Math.max(1, Math.round((b.h + pad * 2) * sc));
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = BOARD_BG;
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.scale(sc, sc);
+  ctx.translate(pad - b.x, pad - b.y);
+  drawBoard(ctx, p, images, {});
+  return c;
 }
 
 // Tek bir slaytı verilen ölçekte canvas'a çizer.

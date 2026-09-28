@@ -1,7 +1,7 @@
 // Editör tuvali: görünüm (kaydır/yakınlaş), seçim, taşıma, köşeden büyütme,
 // kenardan kırpma, döndürme, iki parmakla sıkıştırma ve kırpma modu.
 
-import { drawProject, slideSize, layoutText } from './render.js';
+import { drawProject, drawBoard, contentBounds, slideSize, layoutText, BOARD_BG } from './render.js';
 
 const SEL = '#3d9bff';
 const SNAP_PX = 8;
@@ -54,6 +54,10 @@ export class Stage {
     this.fit();
   }
 
+  // Pano (sonsuz tuval) modu: slayt yok, sınır yok
+  get board() { return this.p?.kind === 'board'; }
+  get isSingle() { return this.single && !this.board; }
+
   setSingle(on) {
     this.single = on;
     try { localStorage.setItem('kaydir.single', on ? '1' : '0'); } catch { /* depolama kapalı */ }
@@ -70,8 +74,15 @@ export class Stage {
   resize() {
     const r = this.c.parentElement.getBoundingClientRect();
     if (!r.width || !r.height) return;
+    if (this.board) {
+      const first = !this.cw;
+      this.cw = r.width; this.ch = r.height;
+      this.setCanvasSize(r);
+      if (first) this.fit();
+      return;
+    }
     // Yükseklik değişirse (panel açıldı/kapandı) görünümü orantılı ölçekle, ortadaki nokta yerinde kalsın
-    if (this.p && this.single && this.cw && (Math.abs(r.width - this.cw) > 1 || Math.abs(r.height - this.ch) > 1)) {
+    if (this.p && this.isSingle && this.cw && (Math.abs(r.width - this.cw) > 1 || Math.abs(r.height - this.ch) > 1)) {
       const zoomed = Math.abs(this.view.s - this.singleFitScale()) > 0.001;
       this.cw = r.width; this.ch = r.height;
       this.setCanvasSize(r);
@@ -109,6 +120,19 @@ export class Stage {
 
   fit() {
     if (!this.p || !this.cw) return;
+    if (this.board) {
+      // tüm içeriği ekrana sığdır; boşsa başlangıç noktasını ortala
+      const b = contentBounds(this.p.elements);
+      const v = this.view;
+      if (!b) { v.s = 0.5; v.ox = this.cw / 2; v.oy = this.ch / 2; }
+      else {
+        v.s = Math.max(0.03, Math.min(1, (this.cw - 80) / b.w, (this.ch - 80) / b.h));
+        v.ox = this.cw / 2 - (b.x + b.w / 2) * v.s;
+        v.oy = this.ch / 2 - (b.y + b.h / 2) * v.s;
+      }
+      this.render(); this.hooks.onViewChange?.();
+      return;
+    }
     if (this.single) { this.focusSlide(Math.min(this.cur, this.p.slides - 1)); return; }
     const { W, H } = this;
     const n = this.p.slides;
@@ -152,7 +176,7 @@ export class Stage {
     this.clampView(); this.render(); this.hooks.onViewChange?.();
   }
 
-  currentSlide() { return this.single ? this.cur : this.centerSlide(); }
+  currentSlide() { return this.board ? 0 : this.single ? this.cur : this.centerSlide(); }
 
   // Ekranın ortasındaki slayt
   centerSlide() {
@@ -162,11 +186,13 @@ export class Stage {
 
   // Görünürde yeni öğe koymak için merkez nokta (dünya koordinatı)
   viewCenter() {
+    if (this.board) return this.toWorld(this.cw / 2, this.ch / 2);
     const i = this.currentSlide();
     return { x: (i + 0.5) * this.W, y: this.H / 2 };
   }
 
   clampView() {
+    if (this.board) return; // sonsuz tuval: sınır yok
     const v = this.view;
     const tw = this.W * this.p.slides * v.s, th = this.H * v.s;
     const m = 60;
@@ -207,6 +233,7 @@ export class Stage {
     const n = p.slides;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.cw, this.ch);
+    if (this.board) { this.drawBoardView(); return; }
 
     // slayt numaraları
     ctx.fillStyle = '#6b6b78';
@@ -283,6 +310,38 @@ export class Stage {
 
     // oynayan video varsa sürekli çiz
     if (this.p.elements.some(e => e.assetId && this.images.get(e.assetId) instanceof HTMLVideoElement)) this.render();
+  }
+
+  drawBoardView() {
+    const { ctx, p } = this;
+    const { s, ox, oy } = this.view;
+    ctx.fillStyle = BOARD_BG;
+    ctx.fillRect(0, 0, this.cw, this.ch);
+    // nokta ızgara: yakınlaştırmaya göre aralığı ayarla (ekranda ~24–60 px)
+    let step = 100;
+    while (step * s < 24) step *= 2;
+    while (step * s > 60) step /= 2;
+    const gs = step * s;
+    ctx.fillStyle = 'rgba(255,255,255,.11)';
+    const sx = ((ox % gs) + gs) % gs, sy = ((oy % gs) + gs) % gs;
+    for (let x = sx; x < this.cw; x += gs) for (let y = sy; y < this.ch; y += gs) ctx.fillRect(x - 1, y - 1, 2, 2);
+    ctx.save();
+    ctx.translate(ox, oy);
+    ctx.scale(s, s);
+    ctx.imageSmoothingQuality = 'medium';
+    drawBoard(ctx, p, this.images, { editing: true });
+    const el = this.selected();
+    if (el && this.crop && el.assetId && this.images.get(el.assetId)) {
+      ctx.save();
+      ctx.translate(el.x + el.w / 2, el.y + el.h / 2);
+      ctx.rotate(el.rot || 0);
+      ctx.globalAlpha = 0.35;
+      ctx.drawImage(this.images.get(el.assetId), el.cx - el.iw / 2, el.cy - el.ih / 2, el.iw, el.ih);
+      ctx.restore();
+    }
+    ctx.restore();
+    if (el) this.drawSelection(el);
+    if (p.elements.some(e => e.assetId && this.images.get(e.assetId) instanceof HTMLVideoElement)) this.render();
   }
 
   // Öğenin (veya kırpma modunda içeriğin) ekran köşeleri ve tutamaçları
@@ -405,7 +464,7 @@ export class Stage {
     }
 
     // tek slayt görünümünde soluk yan slaytlardaki öğeler seçilmez; orası kaydırma/geçiş alanıdır
-    const outside = this.single && (wp.x < this.cur * this.W || wp.x > (this.cur + 1) * this.W);
+    const outside = this.isSingle && (wp.x < this.cur * this.W || wp.x > (this.cur + 1) * this.W);
     const hit = outside ? null : this.hitElement(wp);
 
     if (this.crop && el) {
@@ -536,7 +595,7 @@ export class Stage {
     this.guides = [];
     this.g = null;
     if (!g) return;
-    if (g.type === 'pan' && this.single) {
+    if (g.type === 'pan' && this.isSingle) {
       if (!g.moved) {
         // soluk yan slayta dokunuldu: o slayta geç
         const wx = this.toWorld(g.sp0.x, g.sp0.y).x;
@@ -554,7 +613,7 @@ export class Stage {
       const el = this.selected();
       if (g.dbl && el) {
         if (el.type === 'image' && el.assetId) this.setCrop(true);
-        else if (el.type === 'text') this.hooks.onDoubleTapText?.(el);
+        else if (el.type === 'text' || el.type === 'note') this.hooks.onDoubleTapText?.(el);
       } else if (el && el.type === 'image' && !el.assetId && g.wasSelected) {
         this.hooks.onEmptyFrameTap?.(el);
       }
@@ -572,12 +631,12 @@ export class Stage {
     } else {
       const dx = e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX;
       const dy = e.shiftKey && !e.deltaX ? 0 : e.deltaY;
-      // dikey tekerlek hareketi de şeridi yatay kaydırsın (fare kullanıcıları için)
-      const onlyV = Math.abs(dx) < 1;
+      // dikey tekerlek hareketi de şeridi yatay kaydırsın (fare kullanıcıları için); panoda iki eksen serbest
+      const onlyV = !this.board && Math.abs(dx) < 1;
       this.view.ox -= onlyV ? dy : dx;
       if (!onlyV) this.view.oy -= dy;
       this.clampView(); this.render(); this.hooks.onViewChange?.();
-      if (this.single && Math.abs(this.view.s - this.singleFitScale()) < 0.001) {
+      if (this.isSingle && Math.abs(this.view.s - this.singleFitScale()) < 0.001) {
         clearTimeout(this._snap);
         this._snap = setTimeout(() => this.focusSlide(this.centerSlide()), 180);
       }
@@ -600,6 +659,7 @@ export class Stage {
       layoutText(this.ctx, el);
     } else el.h = e0.h * k;
     if (el.type === 'image') { el.iw = e0.iw * k; el.ih = e0.ih * k; el.cx = e0.cx * k; el.cy = e0.cy * k; }
+    if (el.type === 'note') el.size = Math.max(8, e0.size * k);
   }
 
   scaleContent(el, e0, k) {
@@ -665,6 +725,7 @@ export class Stage {
 
   // Slayt kenarlarına ve ortalarına mıknatıs
   snapMove(el) {
+    if (this.board) return;
     const { W, H } = this;
     const n = this.p.slides;
     const thr = SNAP_PX / this.view.s;

@@ -1,12 +1,14 @@
 {
-  "name": "Kaydır — Kesintisiz Carousel",
-  "short_name": "Kaydır",
+  "name": "Capture Carousel",
+  "short_name": "Carousel",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#111114",
   "theme_color": "#111114",
   "orientation": "any",
+  "description": "Ücretsiz, kesintisiz Instagram carousel ve serbest pano uygulaması. Dosyaların cihazında kalır.",
+  "lang": "tr",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },

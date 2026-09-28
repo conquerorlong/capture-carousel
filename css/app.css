@@ -176,3 +176,39 @@ select.chip { appearance: none; padding-right: 26px; background-image: linear-gr
 .nav-arrow svg { width: 20px; height: 20px; }
 .slide-count { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 600; color: var(--muted); background: #1b1b20e6; border: 1px solid var(--line); padding: 3px 10px; border-radius: 99px; pointer-events: none; }
 #btnMode.on { background: var(--bg3); color: var(--accent); }
+
+/* ---------- karşılama ---------- */
+.home-actions { display: flex; gap: 8px; }
+.welcome { max-width: 980px; margin: 0 auto 26px; background: linear-gradient(135deg, #ff4f7b14, #ffb14f14); border: 1px solid #ff4f7b40; border-radius: 16px; padding: 14px 16px 6px; }
+.welcome-badge { display: inline-block; font-size: 12px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: #1a0c10; background: linear-gradient(135deg, var(--accent), var(--accent2)); padding: 3px 10px; border-radius: 99px; }
+.welcome ul { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.welcome li { font-size: 13.5px; color: #c9c9d3; padding: 0 0 10px; }
+.welcome li b { color: var(--text); display: block; margin-bottom: 2px; }
+.home-section { max-width: 980px; margin: 8px auto 12px; font-size: 15px; color: var(--muted); font-weight: 700; }
+.home-section + .project-list { margin-bottom: 26px; }
+.home-foot { max-width: 980px; margin: 36px auto 0; border-top: 1px solid var(--line); padding-top: 16px; color: var(--muted); font-size: 13px; text-align: center; }
+.home-foot p { margin: 0 0 8px; }
+.social { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px; }
+.social a { color: var(--text); text-decoration: none; font-weight: 600; border: 1px solid var(--line); background: var(--bg2); padding: 8px 14px; border-radius: 99px; }
+.social a:hover { border-color: var(--accent); }
+.home-foot .fine { font-size: 11.5px; line-height: 1.5; max-width: 620px; margin: 0 auto; opacity: .8; }
+@media (max-width: 520px) {
+  .brand { font-size: 17px; white-space: nowrap; gap: 8px; }
+  .logo { width: 26px; height: 26px; }
+  .home-actions { gap: 6px; }
+  .home-actions .btn { padding: 8px 11px; font-size: 14px; }
+  .home-sub { font-size: 14px; margin: 8px auto 14px; }
+  .welcome { padding: 10px 12px 2px; margin-bottom: 18px; }
+  .welcome ul { gap: 2px; margin-top: 8px; }
+  .welcome li { font-size: 12.5px; line-height: 1.35; padding-bottom: 7px; }
+}
+
+/* ---------- pano ---------- */
+#editor.is-board .carousel-only { display: none !important; }
+#editor:not(.is-board) .board-only { display: none !important; }
+.board-export img { max-width: 100%; max-height: 50vh; display: block; margin: 0 auto; border-radius: 8px; }
+@media (max-width: 420px) {
+  .home-head { flex-wrap: wrap; gap: 10px; }
+  .home-actions { width: 100%; }
+  .home-actions .btn { flex: 1; }
+}

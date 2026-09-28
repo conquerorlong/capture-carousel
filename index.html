@@ -7,14 +7,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Kaydır">
-<title>Kaydır — Kesintisiz Carousel</title>
+<meta name="apple-mobile-web-app-title" content="Capture Carousel">
+<meta name="description" content="Ücretsiz, kesintisiz Instagram carousel ve serbest pano uygulaması. Dosyaların cihazında kalır.">
+<title>Capture Carousel</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Playfair+Display:ital,wght@0,500;0,800;1,500&family=Bebas+Neue&family=Montserrat:wght@400;700;900&family=DM+Serif+Display&family=Caveat:wght@500;700&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="fonts/fonts.css">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
@@ -22,16 +21,43 @@
 <!-- ============ ANA EKRAN ============ -->
 <section id="home" class="screen">
   <header class="home-head">
-    <div class="brand"><span class="logo"></span>Kaydır</div>
-    <button class="btn primary" id="btnNew">+ Yeni carousel</button>
+    <div class="brand"><span class="logo"></span>Capture Carousel</div>
+    <div class="home-actions">
+      <button class="btn ghost" id="btnNewBoard">+ Pano</button>
+      <button class="btn primary" id="btnNew">+ Carousel</button>
+    </div>
   </header>
-  <p class="home-sub">Kaydırdıkça devam eden, kesintisiz Instagram carousel'leri tasarla.</p>
+  <p class="home-sub">Kaydırdıkça devam eden, kesintisiz Instagram carousel'leri tasarla; fikirlerini sınırsız bir panoda topla.</p>
+
+  <section class="welcome" aria-label="Uygulama hakkında">
+    <div class="welcome-badge">Tamamen ücretsiz</div>
+    <ul>
+      <li><b>Ücretsiz ve reklamsız.</b> Üyelik, hesap, deneme süresi yok; Capture Studio ve AjansMerter tarafından herkesin kullanımına ücretsiz sunulur.</li>
+      <li><b>Dosyaların sende kalır.</b> Fotoğraf ve videoların hiçbir sunucuya yüklenmez; bütün işlem senin telefonunda ya da bilgisayarında yapılır.</li>
+      <li><b>Hiçbir bilgin bize gelmez.</b> Kişisel veri, istatistik ya da takip çerezi toplanmaz. Projelerin yalnızca bu cihazın tarayıcı hafızasında saklanır.</li>
+      <li><b>Bir uyarı:</b> Tarayıcı verilerini silersen ya da cihaz değiştirirsen projeler de gider. Önemli işlerini dışa aktarıp sakla.</li>
+    </ul>
+  </section>
+
+  <h2 class="home-section" id="hCarousels">Carousel'lerim</h2>
   <div id="projectList" class="project-list"></div>
   <div id="emptyHome" class="empty-home" hidden>
     <div class="empty-art"><i></i><i></i><i></i></div>
-    <p>Henüz bir çalışman yok.</p>
+    <p>Henüz bir carousel'in yok.</p>
     <button class="btn primary" id="btnNew2">İlk carousel'ini oluştur</button>
   </div>
+  <h2 class="home-section" id="hBoards" hidden>Panolarım</h2>
+  <div id="boardList" class="project-list"></div>
+
+  <footer class="home-foot">
+    <p>Hazırlayan ve ücretsiz sunan:</p>
+    <div class="social">
+      <a href="https://www.instagram.com/capturestudiocomtr/" target="_blank" rel="noopener">@capturestudiocomtr</a>
+      <a href="https://www.instagram.com/ajansmerter/" target="_blank" rel="noopener">@ajansmerter</a>
+      <a href="https://www.instagram.com/segnante/" target="_blank" rel="noopener">@segnante</a>
+    </div>
+    <p class="fine">Uygulama GitHub Pages üzerinden yayınlanır. GitHub, her web sitesinde olduğu gibi teknik erişim kayıtları tutabilir; bu kayıtlara bizim erişimimiz yoktur. Yazı tipleri SIL Open Font License ile uygulamanın içinden yüklenir.</p>
+  </footer>
 </section>
 
 <!-- ============ EDİTÖR ============ -->
@@ -47,7 +73,7 @@
     <button class="icon-btn" id="btnRedo" title="Yinele" aria-label="Yinele">
       <svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/></svg>
     </button>
-    <button class="btn ghost" id="btnPreview" aria-label="Önizle"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Önizle</span></button>
+    <button class="btn ghost carousel-only" id="btnPreview" aria-label="Önizle"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Önizle</span></button>
     <button class="btn primary" id="btnExport" aria-label="Dışa aktar"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 002 2h10a2 2 0 002-2v-5"/></svg><span>Dışa aktar</span></button>
   </header>
 
@@ -59,7 +85,7 @@
     <button class="nav-arrow right" id="btnNextSlide" aria-label="Sonraki slayt"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
     <div class="slide-count" id="slideCount"></div>
     <div class="zoom-ctl">
-      <button class="icon-btn small" id="btnMode" aria-label="Tüm slaytları göster" title="Tüm slaytlar / tek slayt"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="6" height="12" rx="1"/><rect x="9" y="6" width="6" height="12" rx="1"/><rect x="16" y="6" width="6" height="12" rx="1"/></svg></button>
+      <button class="icon-btn small carousel-only" id="btnMode" aria-label="Tüm slaytları göster" title="Tüm slaytlar / tek slayt"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="6" height="12" rx="1"/><rect x="9" y="6" width="6" height="12" rx="1"/><rect x="16" y="6" width="6" height="12" rx="1"/></svg></button>
       <button class="icon-btn small" id="btnZoomOut" aria-label="Uzaklaş"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
       <button class="icon-btn small" id="btnFit" aria-label="Sığdır"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
       <button class="icon-btn small" id="btnZoomIn" aria-label="Yakınlaş"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button>
@@ -67,7 +93,7 @@
     <div class="crop-banner" id="cropBanner" hidden>Kırp: sürükle / büyüt <button class="btn small primary" id="btnCropDone">Tamam</button></div>
   </div>
 
-  <div class="slide-strip" id="slideStrip"></div>
+  <div class="slide-strip carousel-only" id="slideStrip"></div>
   </div>
 
   <!-- Seçili öğe paneli -->
@@ -77,12 +103,13 @@
   <!-- Alt araç çubuğu -->
   <nav class="toolbar" id="toolbar">
     <button data-tool="photo"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg><span>Medya</span></button>
+    <button data-tool="note" class="board-only"><svg viewBox="0 0 24 24"><path d="M4 4h16v11l-5 5H4z"/><path d="M15 20v-5h5"/></svg><span>Not</span></button>
     <button data-tool="text"><svg viewBox="0 0 24 24"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg><span>Metin</span></button>
-    <button data-tool="frame"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 3"/><path d="M12 9v6M9 12h6"/></svg><span>Çerçeve</span></button>
+    <button data-tool="frame" class="carousel-only"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 3"/><path d="M12 9v6M9 12h6"/></svg><span>Çerçeve</span></button>
     <button data-tool="shape"><svg viewBox="0 0 24 24"><rect x="3" y="10" width="10" height="10" rx="1"/><circle cx="16" cy="8" r="5"/></svg><span>Şekil</span></button>
-    <button data-tool="bg"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18c1 0 2-1 2-2s-1-1-1-2 1-2 2-2h2a4 4 0 004-4c0-4-4-8-9-8z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></svg><span>Arka plan</span></button>
-    <button data-tool="slides"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="6" height="12" rx="1"/><rect x="9" y="6" width="6" height="12" rx="1"/><rect x="16" y="6" width="6" height="12" rx="1"/></svg><span>Slaytlar</span></button>
-    <button data-tool="template"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="10" width="8" height="11" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/></svg><span>Şablon</span></button>
+    <button data-tool="bg" class="carousel-only"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18c1 0 2-1 2-2s-1-1-1-2 1-2 2-2h2a4 4 0 004-4c0-4-4-8-9-8z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></svg><span>Arka plan</span></button>
+    <button data-tool="slides" class="carousel-only"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="6" height="12" rx="1"/><rect x="9" y="6" width="6" height="12" rx="1"/><rect x="16" y="6" width="6" height="12" rx="1"/></svg><span>Slaytlar</span></button>
+    <button data-tool="template" class="carousel-only"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="10" width="8" height="11" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/></svg><span>Şablon</span></button>
   </nav>
 </section>
 

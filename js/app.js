@@ -1,6 +1,6 @@
 import { store, uid } from './store.js';
 import { Stage } from './stage.js';
-import { RATIOS, FONTS, slideSize, renderSlide, renderStrip, canvasToBlob, drawSlidesApart, drawProject, layoutText } from './render.js';
+import { RATIOS, FONTS, slideSize, renderSlide, renderStrip, renderBoard, canvasToBlob, drawSlidesApart, drawProject, layoutText } from './render.js';
 import { TEMPLATES, applyTemplate, frame, text, shape } from './templates.js';
 import { makeZip } from './zip.js';
 import { isVideo, isVideoFile, dims, blobToVideo, disposeDrawable, videoLength, videoSlides, videoElements,
@@ -140,7 +140,7 @@ async function saveNow() {
   P.updatedAt = Date.now();
   try {
     await ensureFonts(P);
-    P.thumb = await canvasToBlob(renderStrip(P, images, 300), 'image/jpeg', 0.8);
+    P.thumb = await canvasToBlob(P.kind === 'board' ? renderBoard(P, images, 640, 300) : renderStrip(P, images, 300), 'image/jpeg', 0.8);
   } catch { /* küçük resim olmasa da kaydet */ }
   await store.saveProject(P);
 }
@@ -153,12 +153,15 @@ async function showHome() {
   images = new Map();
   $('#editor').hidden = true;
   $('#home').hidden = false;
-  const list = await store.listProjects();
-  const box = $('#projectList');
-  box.querySelectorAll('img').forEach(i => URL.revokeObjectURL(i.src));
-  box.innerHTML = '';
+  const all = await store.listProjects();
+  const boards = all.filter(p => p.kind === 'board');
+  const list = all.filter(p => p.kind !== 'board');
+  for (const b of [$('#projectList'), $('#boardList')]) { b.querySelectorAll('img').forEach(i => URL.revokeObjectURL(i.src)); b.innerHTML = ''; }
   $('#emptyHome').hidden = list.length > 0;
-  for (const p of list) {
+  $('#hBoards').hidden = boards.length === 0;
+  for (const p of all) {
+    const isBoard = p.kind === 'board';
+    const box = isBoard ? $('#boardList') : $('#projectList');
     const thumb = h('div', { class: 'thumb' });
     if (p.thumb) thumb.append(h('img', { src: URL.createObjectURL(p.thumb), alt: '' }));
     const del = h('button', { class: 'icon-btn small', 'aria-label': 'Sil', html: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
@@ -172,7 +175,9 @@ async function showHome() {
     const d = new Date(p.updatedAt);
     box.append(h('div', { class: 'pcard', onclick: () => openProject(p.id) }, thumb,
       h('div', { class: 'meta' },
-        h('div', { style: 'min-width:0' }, h('b', {}, p.name), h('small', {}, `${p.slides} slayt · ${p.ratio} · ${d.toLocaleDateString('tr-TR')}`)),
+        h('div', { style: 'min-width:0' }, h('b', {}, p.name), h('small', {}, isBoard
+          ? `Pano · ${p.elements.length} öğe · ${d.toLocaleDateString('tr-TR')}`
+          : `${p.slides} slayt · ${p.ratio} · ${d.toLocaleDateString('tr-TR')}`)),
         h('div', { style: 'display:flex' }, dup, del))));
   }
 }
@@ -185,6 +190,28 @@ async function duplicateProject(p) {
   for (const a of assets) { const nid = uid(); map[a.id] = nid; await store.putAsset({ ...a, id: nid, projectId: np.id }); }
   for (const e of np.elements) if (e.assetId) e.assetId = map[e.assetId] || null;
   await store.saveProject(np);
+}
+
+// ---------------- yeni pano ----------------
+const NOTE_COLORS = ['#ffd84f', '#ffb14f', '#ff8fa8', '#9be7c4', '#8fc8ff', '#c9b6ff', '#ffffff', '#2b2b33'];
+
+function note(x, y, str, extra = {}) {
+  return { id: uid(), type: 'note', x, y, w: 520, h: 200, rot: 0, text: str, size: 40, fill: '#ffd84f', color: '#1a1a1a', opacity: 1, ...extra };
+}
+
+async function createBoard() {
+  const all = await store.listProjects();
+  const n = all.filter(p => p.kind === 'board').length + 1;
+  const p = {
+    id: uid(), kind: 'board', name: `Pano ${n}`, elements: [
+      note(-560, -220, 'Sonsuz panoya hoş geldin! 👋\n\nBoş bir yere dokunup sürükleyerek gezin, iki parmakla yakınlaş.', { rot: -0.03 }),
+      note(40, -160, 'Alttan not, yazı, fotoğraf ve şekil ekle. Notu düzenlemek için iki kez dokun.', { fill: '#8fc8ff', rot: 0.025 }),
+    ],
+    createdAt: Date.now(), updatedAt: Date.now(), thumb: null,
+  };
+  await store.saveProject(p);
+  await openProject(p.id);
+  await saveNow();
 }
 
 // ---------------- yeni proje ----------------
@@ -272,6 +299,7 @@ async function openProject(id) {
   P = p;
   $('#home').hidden = true;
   $('#editor').hidden = false;
+  $('#editor').classList.toggle('is-board', p.kind === 'board');
   $('#projName').value = p.name;
   await ensureFonts(P);
   for (const e of P.elements) if (e.type === 'text') layoutText($('#stage').getContext('2d'), e);
@@ -288,13 +316,17 @@ $('#projName').addEventListener('keydown', e => { if (e.key === 'Enter') e.targe
 function updateStrip(rebuild) {
   if (!P) return;
   const box = $('#slideStrip');
+  if (P.kind === 'board') {
+    for (const id of ['#btnPrevSlide', '#btnNextSlide', '#slideCount']) $(id).hidden = true;
+    return;
+  }
   if (rebuild || box.children.length !== P.slides) {
     box.innerHTML = '';
     for (let i = 0; i < P.slides; i++) box.append(h('button', { onclick: () => (stage.single ? stage.focusSlide(i) : stage.panToSlide(i)) }, String(i + 1)));
   }
   const cur = stage.currentSlide();
   [...box.children].forEach((b, i) => b.classList.toggle('on', i === cur));
-  const single = stage.single;
+  const single = stage.isSingle;
   $('#btnPrevSlide').hidden = !single || cur <= 0;
   $('#btnNextSlide').hidden = !single || cur >= P.slides - 1;
   $('#slideCount').hidden = !single;
@@ -380,6 +412,7 @@ async function importPhotos(files, dropPoint) {
     try { asset = await importFile(f); } catch (err) { toast(err.message?.startsWith('Video') ? err.message : `"${f.name}" açılamadı`, 4000); continue; }
     const target = empties.shift();
     if (target) { fillFrame(target, asset); last = target; continue; }
+    if (P.kind === 'board' && !dropPoint) dropPoint = stage.viewCenter();
     if (dropPoint) { last = addFreePhoto(asset, dropPoint.x, dropPoint.y, W * 0.8, H * 0.8); dropPoint = { x: dropPoint.x + 40, y: dropPoint.y + 40 }; }
     else { last = addFreePhoto(asset, (Math.min(slide, P.slides - 1) + 0.5) * W, H / 2, W * 0.84, H * 0.84); slide++; }
   }
@@ -433,9 +466,19 @@ function addElement(el) {
 function addText() {
   const { w: W } = slideSize(P);
   const c = stage.viewCenter();
-  const el = text(c.x - W * 0.4, c.y - 60, W * 0.8, 'Metninizi yazın', { align: 'center', color: isDark(P.background) ? '#ffffff' : '#111111', size: 96 });
+  const el = text(c.x - W * 0.4, c.y - 60, W * 0.8, 'Metninizi yazın', { align: 'center', color: (P.kind === 'board' || isDark(P.background)) ? '#ffffff' : '#111111', size: 96 });
   layoutText($('#stage').getContext('2d'), el);
   el.y = c.y - el.h / 2;
+  addElement(el);
+  setTimeout(() => { const ta = $('#panel textarea'); if (ta) { ta.focus(); ta.select(); } }, 50);
+}
+
+function addNote() {
+  const c = stage.viewCenter();
+  // her yeni not bir önceki renkten farklı olsun
+  const last = [...P.elements].reverse().find(e => e.type === 'note');
+  const fill = NOTE_COLORS[(NOTE_COLORS.indexOf(last?.fill) + 1) % 6];
+  const el = note(c.x - 260, c.y - 100, 'Yeni not', { fill, rot: (Math.random() - 0.5) * 0.06 });
   addElement(el);
   setTimeout(() => { const ta = $('#panel textarea'); if (ta) { ta.focus(); ta.select(); } }, 50);
 }
@@ -459,7 +502,7 @@ function shapeSheet() {
   const { w: W } = slideSize(P);
   const c = stage.viewCenter();
   const add = (el) => { closeSheet(); addElement(el); };
-  const col = isDark(P.background) ? '#ffffff' : '#111111';
+  const col = (P.kind === 'board' || isDark(P.background)) ? '#ffffff' : '#111111';
   openSheet(body => {
     body.append(h('h3', {}, 'Şekil ekle'));
     body.append(h('div', { class: 'opt-row' },
@@ -574,6 +617,7 @@ document.querySelectorAll('#toolbar button').forEach(b => b.addEventListener('cl
   const t = b.dataset.tool;
   if (t === 'photo') { pendingFrame = null; $('#filePhoto').click(); }
   else if (t === 'text') addText();
+  else if (t === 'note') addNote();
   else if (t === 'frame') addFrame();
   else if (t === 'shape') shapeSheet();
   else if (t === 'bg') bgSheet();
@@ -677,6 +721,22 @@ function buildPanel(soft) {
       slider('Satır', 0.7, 2, 0.01, el.lineHeight || 1.15, v => { el.lineHeight = v; live(); }, commit)));
     panel.append(h('div', { class: 'prow' },
       slider('Saydamlık', 0.05, 1, 0.01, el.opacity ?? 1, v => { el.opacity = v; live(); }, commit)));
+  }
+
+  if (el.type === 'note') {
+    const ta = h('textarea', { class: 'text-edit', rows: 3 });
+    ta.value = el.text;
+    ta.addEventListener('input', () => { el.text = ta.value; el.h = 10; live(); });
+    ta.addEventListener('change', commit);
+    ta.addEventListener('blur', commit);
+    panel.append(ta);
+    const cr = h('div', { class: 'swatches' });
+    for (const c of NOTE_COLORS) cr.append(h('button', { class: 'sw' + (c === el.fill ? ' on' : ''), style: `background:${c}`, 'aria-label': c,
+      onclick: () => { el.fill = c; el.color = c === '#2b2b33' ? '#ffffff' : '#1a1a1a'; live(); commit(); buildPanel(); } }));
+    panel.append(h('div', { class: 'prow' }, cr));
+    panel.append(h('div', { class: 'prow' },
+      slider('Yazı', 16, 160, 1, el.size, v => { el.size = v; el.h = 10; live(); }, commit),
+      slider('Saydamlık', 0.1, 1, 0.01, el.opacity ?? 1, v => { el.opacity = v; live(); }, commit)));
   }
 
   if (el.type === 'shape') {
@@ -787,7 +847,31 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 
+async function exportBoard() {
+  await saveNow();
+  openSheet(async body => {
+    body.append(h('h3', {}, 'Panoyu görsel olarak kaydet'));
+    const info = h('p', { class: 'note' }, 'Hazırlanıyor…');
+    const prev = h('div', { class: 'board-export' });
+    const actions = h('div', { class: 'big-actions' });
+    body.append(prev, info, actions);
+    await ensureFonts(P);
+    if (!P.elements.length) { info.textContent = 'Pano boş.'; return; }
+    const c = renderBoard(P, images, 4000, 4000);
+    const blob = await canvasToBlob(c, 'image/png');
+    const name = `${slug(P.name)}.png`;
+    const file = new File([blob], name, { type: 'image/png' });
+    prev.append(h('img', { src: URL.createObjectURL(blob), alt: 'Pano' }));
+    info.textContent = `${c.width}×${c.height} px · ${(blob.size / 1048576).toFixed(1)} MB PNG. Panonun tamamı tek görsel olarak kaydedilir.`;
+    if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) {
+      actions.append(h('button', { class: 'btn primary', onclick: () => navigator.share({ files: [file] }).catch(() => {}) }, 'Paylaş / Fotoğraflar\'a kaydet'));
+    }
+    actions.append(h('button', { class: 'btn' + (actions.children.length ? '' : ' primary'), onclick: () => download(file, name) }, 'İndir'));
+  });
+}
+
 async function exportSheet() {
+  if (P.kind === 'board') return exportBoard();
   unlockAudio(); // iOS: ses kaydı için kullanıcının dokunuşu anında açılmalı
   await saveNow();
   let fmt = 'jpg';
@@ -910,6 +994,7 @@ $('#btnZoomOut').addEventListener('click', () => stage.zoomBy(0.8));
 $('#btnCropDone').addEventListener('click', () => stage.setCrop(false));
 $('#btnNew').addEventListener('click', newProjectSheet);
 $('#btnNew2').addEventListener('click', newProjectSheet);
+$('#btnNewBoard').addEventListener('click', createBoard);
 
 window.addEventListener('keydown', e => {
   if (!P || $('#editor').hidden) return;
@@ -922,7 +1007,7 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (stage.crop) stage.setCrop(false); else if (!$('#sheet').hidden) closeSheet(); else stage.select(null); return; }
   if ((e.key === 'Delete' || e.key === 'Backspace') && el) { e.preventDefault(); remove(el); return; }
   if (e.key === 'Enter' && el?.type === 'image' && el.assetId) { stage.setCrop(!stage.crop); return; }
-  if (!el && stage.single && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+  if (!el && stage.isSingle && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
     stage.focusSlide(stage.cur + (e.key === 'ArrowRight' ? 1 : -1)); return;
   }
   const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };

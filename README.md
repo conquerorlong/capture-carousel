@@ -1,12 +1,16 @@
-# Kaydır — kesintisiz Instagram carousel editörü
+# Capture Carousel — kesintisiz Instagram carousel editörü ve serbest pano
 
-SCRL benzeri, kaydırdıkça devam eden carousel'ler tasarlamak için bağımsız web uygulaması (PWA).
+Kaydırdıkça devam eden carousel'ler tasarlamak ve fikirleri sonsuz bir panoda toplamak için ücretsiz web uygulaması (PWA).
+Capture Studio (@capturestudiocomtr), AjansMerter (@ajansmerter) ve @segnante tarafından ücretsiz sunulur.
+
+Yayın adresi: https://conquerorlong.github.io/capture-carousel/
 Mac'te tarayıcıda, iPhone/Android'de Safari/Chrome'da çalışır; ana ekrana eklenince uygulama gibi açılır
 ve internetsiz de çalışır.
 
 - Derleme adımı yok: saf HTML + CSS + JavaScript modülleri.
-- Fotoğraflar ve projeler **yalnızca cihazda** (IndexedDB) saklanır; sunucuya hiçbir şey gönderilmez.
+- Fotoğraflar, videolar ve projeler **yalnızca cihazda** (IndexedDB) saklanır; sunucuya hiçbir şey gönderilmez.
   Bu yüzden Mac'te yapılan proje telefonda görünmez (her cihazın kendi listesi vardır).
+- Yazı tipleri `fonts/` klasöründen yüklenir (SIL Open Font License); Google'a istek gitmez. Analitik/çerez yok.
 
 ## Yerelde çalıştırma
 
@@ -37,3 +41,5 @@ yeni sürüm bir sonraki açılışta gelir.
 | `js/templates.js` | Hazır şablonlar |
 | `js/store.js` | IndexedDB kayıt |
 | `js/zip.js` | Kütüphanesiz ZIP üretici |
+| `js/video.js` | Video yükleme ve slaytı MP4 olarak kaydetme (en fazla 2 video, 30 sn) |
+| `fonts/` | Yerel yazı tipleri (latin + latin-ext) |
