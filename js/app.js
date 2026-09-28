@@ -815,16 +815,18 @@ async function exportSheet() {
       files = [];
       const base = slug(P.name);
       const slots = [];
-      for (let i = 0; i < P.slides; i++) { const a = h('a', { class: 'slot' }); thumbs.append(a); slots.push(a); }
+      for (let i = 0; i < P.slides; i++) { const a = h('div', { class: 'slot' }); thumbs.append(a); slots.push(a); }
       const put = (i, blob, ext) => {
         const name = `${base}-${String(i + 1).padStart(2, '0')}.${ext}`;
         files[i] = new File([blob], name, { type: blob.type });
         const url = URL.createObjectURL(blob);
         const a = slots[i];
-        a.href = url; a.download = name; a.title = `${i + 1}. slaytı indir`; a.innerHTML = '';
+        a.innerHTML = '';
         a.append(blob.type.startsWith('video/')
           ? h('video', { src: url, muted: true, autoplay: true, loop: true, playsinline: true })
           : h('img', { src: url, alt: `${i + 1}. slayt` }));
+        // her slaytın kendi indirme düğmesi (tıklama anında indirir, tarayıcı engellemez)
+        a.append(h('button', { class: 'btn small slot-dl', onclick: () => download(files[i], name) }, `${i + 1} · İndir`));
       };
       // önce fotoğraf slaytları (anında)
       for (let i = 0; i < P.slides; i++) {
@@ -858,18 +860,39 @@ async function exportSheet() {
       }
       const mb = files.reduce((s, f) => s + f.size, 0) / 1048576;
       const nv = files.filter(f => f.type.startsWith('video/')).length;
-      info.textContent = `${files.length} dosya${nv ? ` (${nv} video)` : ''} · ${W}×${H} px · ${mb.toFixed(1)} MB. Tek bir dosyayı indirmek için üzerine dokun.`;
-      if (navigator.canShare && navigator.canShare({ files })) {
-        actions.append(h('button', { class: 'btn primary', onclick: async () => {
-          try { await navigator.share({ files }); } catch (e) { if (e.name !== 'AbortError') toast('Paylaşım açılamadı: ' + e.message); }
-        } }, 'Paylaş / Fotoğraflar\'a kaydet'));
+      info.textContent = `${files.length} dosya${nv ? ` (${nv} video)` : ''} · ${W}×${H} px · ${mb.toFixed(1)} MB.`;
+      const touch = matchMedia('(pointer: coarse)').matches;
+      const canShare = navigator.canShare && navigator.canShare({ files });
+      const btn = (label, fn) => h('button', { class: 'btn' + (actions.children.length ? '' : ' primary'), onclick: fn }, label);
+      const share = async () => {
+        try { await navigator.share({ files }); } catch (e) { if (e.name !== 'AbortError') toast('Paylaşım açılamadı: ' + e.message); }
+      };
+      // telefonda: paylaş menüsü (Fotoğraflar'a kaydet / Instagram)
+      if (touch && canShare) actions.append(btn('Paylaş / Fotoğraflar\'a kaydet', share));
+      // bilgisayarda (Chrome/Edge): bir klasör seç, tüm slaytlar tek tek dosya olarak yazılsın
+      if (window.showDirectoryPicker) {
+        actions.append(btn('Klasöre kaydet (ayrı ayrı dosyalar)', async () => {
+          let dir;
+          try { dir = await window.showDirectoryPicker({ id: 'kaydir', mode: 'readwrite', startIn: 'downloads' }); }
+          catch (e) { if (e.name !== 'AbortError') toast('Klasör açılamadı: ' + e.message); return; }
+          try {
+            for (const f of files) {
+              const fh = await dir.getFileHandle(f.name, { create: true });
+              const w = await fh.createWritable();
+              await w.write(f); await w.close();
+            }
+            toast(`${files.length} dosya "${dir.name}" klasörüne kaydedildi`, 3500);
+          } catch (e) { toast('Kaydedilemedi: ' + e.message, 4000); }
+        }));
       }
-      actions.append(h('button', { class: 'btn' + (actions.children.length ? '' : ' primary'), onclick: async () => {
+      actions.append(btn('Tek tek indir', async () => {
+        for (const f of files) { download(f, f.name); await new Promise(r => setTimeout(r, 600)); }
+        toast('Yalnızca biri indiyse: tarayıcı "birden fazla dosya" izni istiyor, adres çubuğundan İzin ver\'e bas', 6000);
+      }));
+      actions.append(btn('Hepsini ZIP olarak indir', async () => {
         download(await makeZip(files.map(f => ({ name: f.name, blob: f }))), `${base}.zip`);
-      } }, 'Hepsini ZIP olarak indir'));
-      actions.append(h('button', { class: 'btn ghost', onclick: async () => {
-        for (const f of files) { download(f, f.name); await new Promise(r => setTimeout(r, 350)); }
-      } }, 'Tek tek indir'));
+      }));
+      if (!touch && canShare) actions.append(h('button', { class: 'btn ghost', onclick: share }, 'Paylaş…'));
       busy = false;
     };
     build();

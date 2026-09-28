@@ -133,9 +133,10 @@ select.chip { appearance: none; padding-right: 26px; background-image: linear-gr
 .tpl.on span { color: var(--text); }
 .sheet-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
 .export-thumbs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; }
-.export-thumbs a { flex: none; display: block; }
+
 .export-thumbs img, .export-thumbs video { height: 150px; display: block; border-radius: 4px; }
-.export-thumbs .slot { min-width: 60px; }
+.export-thumbs .slot { min-width: 60px; flex: none; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.slot-dl { font-size: 12px; }
 .slot-wait { height: 150px; aspect-ratio: 4/5; display: grid; place-items: center; background: var(--bg3); border-radius: 4px; font-size: 12px; color: var(--muted); text-align: center; padding: 6px; }
 .note { font-size: 13px; color: var(--muted); margin: 10px 0 0; }
 .big-actions { display: grid; gap: 8px; margin-top: 14px; }
