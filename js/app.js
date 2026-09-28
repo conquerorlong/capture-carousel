@@ -1032,6 +1032,19 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && P) 
   const inApp = /Instagram|FBAN|FBAV|FB_IAB|Line\/|TikTok|musical_ly|Snapchat|Twitter/i.test(ua);
   $('#inAppWarn').hidden = !inApp;
   const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  if (inApp) {
+    // sayfanın en üstünde uyarı + gerçek tarayıcıda açma düğmesi
+    $('#inAppTop').hidden = false;
+    const url = location.href.split('#')[0];
+    const bare = url.replace(/^https?:\/\//, '');
+    const b = $('#btnOpenBrowser');
+    if (ios) b.href = 'x-safari-https://' + bare; // iOS 17+: Safari'yi açar
+    else if (/Android/i.test(ua)) { b.href = `intent://${bare}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`; b.textContent = "Chrome'da aç"; }
+    else b.hidden = true;
+    $('#inAppManual').innerHTML = ios
+      ? 'Düğme çalışmazsa: sağ üstteki <span class="k">•••</span> → <span class="k">Safari\'de aç</span>'
+      : 'Düğme çalışmazsa: sağ üstteki <span class="k">⋮</span> → <span class="k">Tarayıcıda aç</span>';
+  }
   const os = ios ? 'ios' : /Android/i.test(ua) ? 'android' : 'mac';
   const mine = document.querySelector(`.install-os[data-os="${os}"]`);
   if (mine) {
