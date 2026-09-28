@@ -49,6 +49,46 @@
   <h2 class="home-section" id="hBoards" hidden>Panolarım</h2>
   <div id="boardList" class="project-list"></div>
 
+  <section class="install" id="installHelp" aria-labelledby="installTitle">
+    <h2 class="home-section" id="installTitle">Telefonuna uygulama olarak yükle</h2>
+    <p class="install-lead">Ana ekrana eklersen simgesiyle açılır, tam ekran çalışır ve internet olmadan da kullanılır. Mağazaya gerek yok, ücretsiz.</p>
+    <button class="btn primary install-now" id="btnInstall" hidden>Uygulamayı yükle</button>
+
+    <div class="install-warn" id="inAppWarn">
+      <b>Bu sayfayı Instagram'dan açtıysan önce tarayıcıda aç:</b>
+      Sağ üstteki <span class="k">•••</span> düğmesine dokun → <span class="k">Tarayıcıda aç</span> (iPhone'da "Safari'de aç", Android'de "Chrome'da aç"). Instagram'ın içinden ana ekrana eklenemez.
+    </div>
+
+    <details class="install-os" data-os="ios">
+      <summary>iPhone / iPad (Safari)</summary>
+      <ol>
+        <li>Bu sayfayı <b>Safari</b>'de aç.</li>
+        <li>Alttaki <b>Paylaş</b> düğmesine dokun <span class="k">⬆︎</span> (kare içinde yukarı ok).</li>
+        <li>Listeyi aşağı kaydır, <b>Ana Ekrana Ekle</b>'ye dokun.</li>
+        <li>Sağ üstten <b>Ekle</b>'ye dokun. Ana ekranında "Carousel" simgesi belirir.</li>
+      </ol>
+    </details>
+
+    <details class="install-os" data-os="android">
+      <summary>Android (Chrome)</summary>
+      <ol>
+        <li>Bu sayfayı <b>Chrome</b>'da aç.</li>
+        <li>Sağ üstteki <b>⋮</b> menüsüne dokun.</li>
+        <li><b>Uygulamayı yükle</b>'ye (bazı telefonlarda <b>Ana ekrana ekle</b>) dokun.</li>
+        <li><b>Yükle</b> ile onayla. Simge ana ekranına ve uygulama listene gelir.</li>
+      </ol>
+    </details>
+
+    <details class="install-os" data-os="mac">
+      <summary>Mac / bilgisayar</summary>
+      <ol>
+        <li><b>Chrome / Edge:</b> Adres çubuğunun sağındaki <b>yükle</b> simgesine (ekran + aşağı ok) tıkla → <b>Yükle</b>.</li>
+        <li><b>Safari (Mac):</b> Menüden <b>Dosya → Dock'a Ekle</b>'yi seç.</li>
+        <li>Uygulama Dock'ta ve Launchpad'de ayrı bir pencere olarak açılır.</li>
+      </ol>
+    </details>
+  </section>
+
   <footer class="home-foot">
     <p>Hazırlayan ve ücretsiz sunan:</p>
     <div class="social">

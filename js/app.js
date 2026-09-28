@@ -1024,6 +1024,39 @@ function commitSoon() { clearTimeout(commitT); commitT = setTimeout(commit, 400)
 window.addEventListener('pagehide', () => { if (P) saveNow(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && P) saveNow(); });
 
+// ---------------- ana ekrana yükleme rehberi ----------------
+(function installGuide() {
+  const ua = navigator.userAgent;
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if (standalone) { $('#installHelp').hidden = true; return; } // zaten uygulama olarak açılmış
+  const inApp = /Instagram|FBAN|FBAV|FB_IAB|Line\/|TikTok|musical_ly|Snapchat|Twitter/i.test(ua);
+  $('#inAppWarn').hidden = !inApp;
+  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const os = ios ? 'ios' : /Android/i.test(ua) ? 'android' : 'mac';
+  const mine = document.querySelector(`.install-os[data-os="${os}"]`);
+  if (mine) {
+    mine.open = true;
+    const sum = mine.querySelector('summary');
+    sum.replaceChildren(h('span', {}, sum.textContent, h('span', { class: 'mine-tag' }, 'Senin cihazın')));
+    mine.parentNode.insertBefore(mine, document.querySelector('.install-os')); // en üste al
+  }
+  // Android / bilgisayar Chrome: tek dokunuşla yükleme
+  let deferred = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferred = e;
+    $('#btnInstall').hidden = false;
+  });
+  $('#btnInstall').addEventListener('click', async () => {
+    if (!deferred) return;
+    deferred.prompt();
+    await deferred.userChoice.catch(() => {});
+    deferred = null;
+    $('#btnInstall').hidden = true;
+  });
+  window.addEventListener('appinstalled', () => { $('#btnInstall').hidden = true; toast('Uygulama yüklendi 🎉'); });
+})();
+
 // ---------------- başlat ----------------
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

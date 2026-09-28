@@ -212,3 +212,21 @@ select.chip { appearance: none; padding-right: 26px; background-image: linear-gr
   .home-actions { width: 100%; }
   .home-actions .btn { flex: 1; }
 }
+
+/* ---------- ana ekrana yükleme rehberi ---------- */
+.install { max-width: 980px; margin: 30px auto 0; }
+.install .home-section { color: var(--text); font-size: 17px; }
+.install-lead { color: var(--muted); font-size: 14px; margin: -4px 0 12px; }
+.install-now { width: 100%; padding: 13px; font-size: 15px; margin-bottom: 12px; }
+.install-warn { background: #3a2a12; border: 1px solid #ffb14f55; color: #f3dfc2; border-radius: 12px; padding: 10px 12px; font-size: 13px; line-height: 1.45; margin-bottom: 10px; }
+.install-warn b { display: block; color: #ffd08a; margin-bottom: 2px; }
+.install-os { background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; }
+.install-os summary { cursor: pointer; padding: 12px 14px; font-weight: 700; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+.install-os summary::-webkit-details-marker { display: none; }
+.install-os summary::after { content: "+"; color: var(--muted); font-size: 20px; font-weight: 400; }
+.install-os[open] summary::after { content: "−"; }
+.install-os[open] { border-color: #ff4f7b66; }
+.install-os ol { margin: 0; padding: 0 16px 14px 34px; font-size: 14px; line-height: 1.5; color: #d4d4dc; }
+.install-os li { margin-bottom: 6px; }
+.install-os .mine-tag { font-size: 11px; font-weight: 700; background: var(--accent); color: #1a0c10; padding: 2px 8px; border-radius: 99px; margin-left: 8px; }
+.k { display: inline-block; background: var(--bg3); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; font-weight: 700; }
