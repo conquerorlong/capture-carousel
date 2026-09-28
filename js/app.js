@@ -1,6 +1,6 @@
 import { store, uid } from './store.js';
 import { Stage } from './stage.js';
-import { RATIOS, FONTS, slideSize, renderSlide, renderStrip, canvasToBlob, drawProject, layoutText } from './render.js';
+import { RATIOS, FONTS, slideSize, renderSlide, renderStrip, canvasToBlob, drawSlidesApart, layoutText } from './render.js';
 import { TEMPLATES, applyTemplate, frame, text, shape } from './templates.js';
 import { makeZip } from './zip.js';
 
@@ -226,16 +226,15 @@ function tplPreview(t, ratio, count) {
   const r = applyTemplate(t, count, W, H);
   const p = { ratio, slides: count, background: r.background || '#ffffff', elements: r.elements };
   const c = document.createElement('canvas');
-  const ch = 90 * 2, sc = ch / H;
-  c.width = Math.min(W * count * sc, 600); c.height = ch;
+  c.width = 520; c.height = 340;
   const ctx = c.getContext('2d');
-  const fitSc = Math.min(sc, c.width / (W * count));
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, c.width, c.height);
-  ctx.translate((c.width - W * count * fitSc) / 2, (c.height - H * fitSc) / 2);
-  ctx.scale(fitSc, fitSc);
-  drawProject(ctx, p, new Map(), { editing: true });
-  ctx.strokeStyle = 'rgba(255,79,123,.9)'; ctx.lineWidth = 2 / fitSc;
-  for (let i = 1; i < count; i++) { ctx.beginPath(); ctx.moveTo(i * W, 0); ctx.lineTo(i * W, H); ctx.stroke(); }
+  const gap = 10, pad = 16;
+  // slaytları ayrı dikey kartlar olarak, kutuya sığacak ölçekte çiz
+  const sc = Math.min((c.height - pad * 2) / H, (c.width - pad * 2 - gap * (count - 1)) / (W * count));
+  const tw = W * count * sc + gap * (count - 1);
+  ctx.fillStyle = '#0b0b0d'; ctx.fillRect(0, 0, c.width, c.height);
+  ctx.translate((c.width - tw) / 2, (c.height - H * sc) / 2);
+  drawSlidesApart(ctx, p, new Map(), sc, gap, { editing: true });
   return c;
 }
 

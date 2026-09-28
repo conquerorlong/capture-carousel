@@ -178,19 +178,29 @@ export function renderSlide(p, images, index, scale = 1) {
   return c;
 }
 
-// Bütün şeridi küçük boyutta çizer (proje kartı küçük resmi için).
+// Slaytları aralarında boşluk bırakarak ayrı dikey kartlar halinde çizer
+// (küçük resimler için: her slaytın ayrı sayfa olduğu bir bakışta anlaşılsın).
+export function drawSlidesApart(ctx, p, images, scale, gapPx, opts = {}) {
+  const { w: W, h: H } = slideSize(p);
+  for (let i = 0; i < p.slides; i++) {
+    ctx.save();
+    ctx.translate(i * (W * scale + gapPx), 0);
+    ctx.beginPath(); ctx.rect(0, 0, W * scale, H * scale); ctx.clip();
+    ctx.scale(scale, scale);
+    ctx.translate(-i * W, 0);
+    drawProject(ctx, p, images, opts);
+    ctx.restore();
+  }
+}
+
+// Proje kartı küçük resmi
 export function renderStrip(p, images, height) {
   const { w: W, h: H } = slideSize(p);
-  const scale = height / H;
+  const scale = height / H, gap = Math.round(height * 0.04);
   const c = document.createElement('canvas');
-  c.width = Math.round(W * p.slides * scale);
+  c.width = Math.round(W * p.slides * scale + gap * (p.slides - 1));
   c.height = Math.round(height);
-  const ctx = c.getContext('2d');
-  ctx.scale(scale, scale);
-  drawProject(ctx, p, images, {});
-  ctx.strokeStyle = 'rgba(0,0,0,.25)';
-  ctx.lineWidth = 1 / scale;
-  for (let i = 1; i < p.slides; i++) { ctx.beginPath(); ctx.moveTo(i * W, 0); ctx.lineTo(i * W, H); ctx.stroke(); }
+  drawSlidesApart(c.getContext('2d'), p, images, scale, gap);
   return c;
 }
 

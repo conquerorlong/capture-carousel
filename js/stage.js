@@ -86,7 +86,7 @@ export class Stage {
     if (!this.p || !this.cw) return;
     const { W, H } = this;
     const n = this.p.slides;
-    const padX = 20, padTop = 52, padBot = 24;
+    const padX = 20, padTop = 52, padBot = 40;
     const sH = (this.ch - padTop - padBot) / H;
     let s = Math.min(sH, (this.cw - padX * 2) / (W * n));
     // Şerit çok uzunsa ve slaytlar ufacık kalıyorsa, yüksekliğe göre sığdır ve kaydırmaya izin ver
@@ -108,12 +108,13 @@ export class Stage {
     this.clampView(); this.render(); this.hooks.onViewChange?.();
   }
 
+  // Tek slaytı ekrana sığdırıp ortalar (slayt numarasına basınca)
   focusSlide(i) {
     const v = this.view;
-    const cxWorld = (i + 0.5) * this.W;
-    const total = this.W * this.p.slides * v.s;
-    if (total <= this.cw) return;
-    v.ox = this.cw / 2 - cxWorld * v.s;
+    const padTop = 52, padBot = 40;
+    v.s = Math.min((this.ch - padTop - padBot) / this.H, (this.cw - 80) / this.W);
+    v.ox = this.cw / 2 - (i + 0.5) * this.W * v.s;
+    v.oy = padTop + (this.ch - padTop - padBot - this.H * v.s) / 2;
     this.clampView(); this.render(); this.hooks.onViewChange?.();
   }
 
@@ -196,20 +197,24 @@ export class Stage {
     }
     ctx.restore();
 
-    // slayt ayraçları
+    // slayt ayraçları: her slaytın ayrı bir dikey sayfa olduğu belli olsun
     ctx.save();
-    ctx.lineWidth = 1;
     for (let i = 1; i < n; i++) {
-      const x = Math.round(ox + i * W * s) + 0.5;
-      ctx.strokeStyle = 'rgba(255,255,255,.9)';
-      ctx.setLineDash([6, 6]);
-      ctx.beginPath(); ctx.moveTo(x, oy); ctx.lineTo(x, oy + H * s); ctx.stroke();
-      ctx.strokeStyle = 'rgba(0,0,0,.6)';
-      ctx.lineDashOffset = 6;
-      ctx.beginPath(); ctx.moveTo(x, oy); ctx.lineTo(x, oy + H * s); ctx.stroke();
-      ctx.lineDashOffset = 0;
+      const x = Math.round(ox + i * W * s);
+      ctx.fillStyle = '#0b0b0d';
+      ctx.fillRect(x - 2, oy - 6, 4, H * s + 12);
+      ctx.strokeStyle = 'rgba(255,255,255,.55)';
+      ctx.setLineDash([5, 5]);
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x + 0.5, oy); ctx.lineTo(x + 0.5, oy + H * s); ctx.stroke();
     }
     ctx.restore();
+    // her slaytın altına ölçüsü
+    ctx.fillStyle = '#6b6b78';
+    ctx.font = '500 11px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    if (W * s > 70) for (let i = 0; i < n; i++) ctx.fillText(`${W}×${H}`, ox + (i + 0.5) * W * s, oy + H * s + 10);
     ctx.strokeStyle = '#34343d';
     ctx.strokeRect(ox - 0.5, oy - 0.5, W * n * s + 1, H * s + 1);
 
