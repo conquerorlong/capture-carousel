@@ -1029,9 +1029,13 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && P) 
   const ua = navigator.userAgent;
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   if (standalone) { $('#installHelp').hidden = true; return; } // zaten uygulama olarak açılmış
-  const inApp = /Instagram|FBAN|FBAV|FB_IAB|Line\/|TikTok|musical_ly|Snapchat|Twitter/i.test(ua);
-  $('#inAppWarn').hidden = !inApp;
   const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  // Uygulama içi tarayıcı: adı bilinenler + iPhone'da "Safari/" imzası olmayan her gömülü tarayıcı
+  // (gerçek Safari/Chrome/Firefox iOS'ta hep "Safari/" içerir) + Android WebView ("; wv)")
+  const inApp = /Instagram|FBAN|FBAV|FB_IAB|FBIOS|Line\/|TikTok|musical_ly|BytedanceWebview|Snapchat|Twitter|LinkedInApp|Pinterest|WhatsApp/i.test(ua)
+    || (ios && !/Safari\//.test(ua))
+    || /; wv\)/.test(ua);
+  $('#inAppWarn').hidden = !inApp;
   if (inApp) {
     // sayfanın en üstünde uyarı + gerçek tarayıcıda açma düğmesi
     $('#inAppTop').hidden = false;
